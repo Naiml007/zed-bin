@@ -27,7 +27,6 @@ jobs:
 
       - name: Build Zed
         id: build
-        working-directory: ./zed   # Change this if Cargo.toml is in another folder.
         shell: cmd
         run: |
           if "%BUILD_MODE%"=="release" (
@@ -39,12 +38,11 @@ jobs:
           BUILD_MODE: ${{ github.event.inputs.build_mode }}
 
       - name: Run Tests
-        working-directory: ./zed   # Ensure this points to the directory containing Cargo.toml.
         run: cargo test --workspace
 
       - name: Archive Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: zed-${{ env.BUILD_MODE }}
-          path: zed/target/${{ env.BUILD_MODE }}/zed.exe   # Adjust if your executable name or path differs.
+          path: target/${{ env.BUILD_MODE }}/zed.exe
           if-no-files-found: error
