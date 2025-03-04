@@ -1,49 +1,48 @@
-name: Build Zed
+name: Zed Build
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Commit SHA/tag to build (default: latest)"
+      build_mode:
+        description: "Build mode: release or debug"
         required: false
+        default: "release"
+  push:
+    branches: [ main ]
+  pull_request:
 
 jobs:
   build:
     runs-on: windows-2022
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust@v1
+      - name: Setup Rust Toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          components: rust-src, llvm-tools-preview
+          override: true
 
-      - name: Add Visual Studio Components
+      - name: Build Zed
+        id: build
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify ^
-          --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" ^
-          --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
-          --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre ^
-          --passive --norestart
+          if "%BUILD_MODE%"=="release" (
+            cargo build --release
+          ) else (
+            cargo build
+          )
+        env:
+          BUILD_MODE: ${{ github.event.inputs.build_mode }}
 
-      - name: Set RC Toolkit Path
-        shell: cmd
-        run: echo ZED_RC_TOOLKIT_PATH=C:\Program Files (x86)\Windows Kits\10\bin\10.0.20348.0\x64 >> %GITHUB_ENV%
+      - name: Run Tests
+        run: cargo test --workspace
 
-      - name: Build Zed (Release)
-        shell: cmd
-        run: cargo build --release
-
-      - name: Archive Artifact
+      - name: Archive Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zed-${{ github.event.inputs.version || github.sha }}
-          path: |
-            target/release/zed.exe
-            target/release/*.dll
+          name: zed-${{ env.BUILD_MODE }}
+          path: target/${{ env.BUILD_MODE }}/zed.exe
           if-no-files-found: error
